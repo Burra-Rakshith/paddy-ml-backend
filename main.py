@@ -21,7 +21,7 @@ app.add_middleware(
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(BASE_DIR, 'model', 'paddy_disease_model.h5')
 CLASSES_PATH = os.path.join(BASE_DIR, 'model', 'classes.txt')
-CONFIDENCE_THRESHOLD = 0.55
+CONFIDENCE_THRESHOLD = 0.75
 
 # Load model and classes
 model = None
@@ -115,10 +115,9 @@ def is_paddy_leaf(img):
         S = img_np[:,:,1]
         V = img_np[:,:,2]
         
-        # Define Green/Yellow range (approximate for PIL HSV 0-255)
-        # Green/Yellow hue is roughly 20 to 130
-        # Saturation and Value should be sufficient to avoid black/white/gray
-        leaf_mask = (H > 20) & (H < 130) & (S > 25) & (V > 25)
+        # Define Green/Yellow range (more specific to rice leaves)
+        # Rice leaves are typically between 30 (Yellowish) and 95 (Deep Green)
+        leaf_mask = (H > 30) & (H < 95) & (S > 40) & (V > 40)
         
         leaf_pixels = np.sum(leaf_mask)
         total_pixels = img_np.shape[0] * img_np.shape[1]
@@ -126,8 +125,9 @@ def is_paddy_leaf(img):
         ratio = leaf_pixels / total_pixels
         print(f"Leaf pixel ratio: {ratio:.4f}")
         
-        # Threshold: at least 10% of the image should be "leaf-colored"
-        return ratio > 0.10
+        # Threshold: at least 30% of the image should be "leaf-colored"
+        return ratio > 0.30
+
     except Exception as e:
         print(f"Error in heuristic check: {e}")
         return True # Fallback to model if check fails

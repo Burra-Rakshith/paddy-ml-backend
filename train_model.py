@@ -7,7 +7,7 @@ import os
 
 # Paths
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(os.path.dirname(BASE_DIR), 'Rice_Leaf_AUG')
+DATA_DIR = os.path.join(BASE_DIR, 'Rice_Leaf_AUG')
 TRAIN_DIR = os.path.join(DATA_DIR, 'train')
 VAL_DIR = os.path.join(DATA_DIR, 'validation')
 MODEL_SAVE_PATH = os.path.join(BASE_DIR, 'model', 'paddy_disease_model.h5')
