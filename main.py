@@ -39,6 +39,8 @@ input_details = None
 output_details = None
 classes = []
 
+tflite_error_msg = "Unknown Error"
+
 if os.path.exists(MODEL_PATH):
     try:
         interpreter = tflite.Interpreter(model_path=MODEL_PATH)
@@ -46,9 +48,12 @@ if os.path.exists(MODEL_PATH):
         input_details = interpreter.get_input_details()
         output_details = interpreter.get_output_details()
         print("TFLite Model loaded successfully.")
+        tflite_error_msg = None
     except Exception as e:
+        tflite_error_msg = str(e)
         print(f"Error loading TFLite model: {e}")
 else:
+    tflite_error_msg = f"Path {MODEL_PATH} does not exist"
     print(f"Warning: Model not found at {MODEL_PATH}")
 
 if os.path.exists(CLASSES_PATH):
@@ -153,7 +158,7 @@ def is_paddy_leaf(img):
 @app.post("/predict")
 async def predict(image: UploadFile = File(...)):
     if interpreter is None:
-        return {"error": "Model not loaded on server."}
+        return {"error": f"Model not loaded on server. Details: {tflite_error_msg}"}
     
     # Read and preprocess image
     contents = await image.read()
