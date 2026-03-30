@@ -1,6 +1,5 @@
 from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-import tensorflow as tf
 import numpy as np
 from PIL import Image
 import io
@@ -19,21 +18,36 @@ app.add_middleware(
 
 @app.get("/")
 def read_root():
-    return {"status": "active", "message": "Paddy Disease Detection API is running"}
+    return {"status": "active", "message": "Paddy Disease Detection API is running (TFLite)"}
+
+# Try importing tflite_runtime, fallback to tensorflow.lite
+try:
+    import tflite_runtime.interpreter as tflite
+except ImportError:
+    import tensorflow as tf
+    tflite = tf.lite
 
 # Paths
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_PATH = os.path.join(BASE_DIR, 'model', 'paddy_disease_model.h5')
+MODEL_PATH = os.path.join(BASE_DIR, 'model', 'paddy_disease_model.tflite')
 CLASSES_PATH = os.path.join(BASE_DIR, 'model', 'classes.txt')
 CONFIDENCE_THRESHOLD = 0.75
 
 # Load model and classes
-model = None
+interpreter = None
+input_details = None
+output_details = None
 classes = []
 
 if os.path.exists(MODEL_PATH):
-    model = tf.keras.models.load_model(MODEL_PATH)
-    print("Model loaded successfully.")
+    try:
+        interpreter = tflite.Interpreter(model_path=MODEL_PATH)
+        interpreter.allocate_tensors()
+        input_details = interpreter.get_input_details()
+        output_details = interpreter.get_output_details()
+        print("TFLite Model loaded successfully.")
+    except Exception as e:
+        print(f"Error loading TFLite model: {e}")
 else:
     print(f"Warning: Model not found at {MODEL_PATH}")
 
@@ -138,7 +152,7 @@ def is_paddy_leaf(img):
 
 @app.post("/predict")
 async def predict(image: UploadFile = File(...)):
-    if model is None:
+    if interpreter is None:
         return {"error": "Model not loaded on server."}
     
     # Read and preprocess image
@@ -156,10 +170,13 @@ async def predict(image: UploadFile = File(...)):
 
     img_resized = img.resize((224, 224))
     img_array = np.array(img_resized) / 255.0
-    img_array = np.expand_dims(img_array, axis=0)
+    img_array = np.expand_dims(img_array, axis=0).astype(np.float32)
     
-    # Predict
-    predictions = model.predict(img_array)
+    # Predict using TFLite interpreter
+    interpreter.set_tensor(input_details[0]['index'], img_array)
+    interpreter.invoke()
+    predictions = interpreter.get_tensor(output_details[0]['index'])
+    
     class_idx = np.argmax(predictions[0])
     confidence = float(predictions[0][class_idx])
     disease_name = classes[class_idx]
