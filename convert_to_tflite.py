@@ -13,13 +13,20 @@ def main():
     print("Loading Keras model...")
     model = tf.keras.models.load_model(MODEL_PATH)
     
-    print("Converting model to TFLite format...")
+    print("Converting model to TFLite format (Float32 for max compatibility)...")
     converter = tf.lite.TFLiteConverter.from_keras_model(model)
-    # Enable optimizations for size and speed
-    converter.optimizations = [tf.lite.Optimize.DEFAULT]
+    
+    # We purposefully AVOID optimizations (like INT8 quantization) 
+    # because they force newer opcode versions (like FULLY_CONNECTED v9) 
+    # which break on older or specific TensorFlow runtime builds.
+    converter.target_spec.supported_ops = [
+        tf.lite.OpsSet.TFLITE_BUILTINS, # Enable standard ops.
+        tf.lite.OpsSet.SELECT_TF_OPS    # Fallback to TF ops if needed.
+    ]
+    
     tflite_model = converter.convert()
     
-    print("Saving TFLite model...")
+    print("Saving highly-compatible TFLite model...")
     with open(TFLITE_PATH, 'wb') as f:
         f.write(tflite_model)
         
